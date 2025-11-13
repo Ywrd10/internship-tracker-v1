@@ -56,8 +56,8 @@ const DashboardPage: React.FC = () => {
 
     const unsub = onSnapshot(
       q,
-      (snapshot) => {
-        const items: Internship[] = snapshot.docs.map((docSnap) => {
+      (snapshot: any) => {
+        const items: Internship[] = snapshot.docs.map((docSnap: any) => {
           const data = docSnap.data() as DocumentData;
 
           return {
@@ -72,12 +72,13 @@ const DashboardPage: React.FC = () => {
         setInternships(items);
         setLoadingList(false);
       },
-      (err) => {
+      (err: any) => {
         console.error("Error loading internships:", err);
         setError("Failed to load internships. Check console for details.");
         setLoadingList(false);
       }
     );
+
 
     return () => unsub();
   }, [user]);
