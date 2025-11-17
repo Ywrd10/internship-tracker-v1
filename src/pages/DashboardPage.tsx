@@ -26,6 +26,7 @@ const STATUS_OPTIONS: { value: InternshipStatus; label: string }[] = [
 ];
 
 type StatusFilter = "all" | InternshipStatus;
+type SortOption = "newest" | "oldest" | "company-az" | "company-za";
 
 const DashboardPage: React.FC = () => {
   const { user, loading: authLoading } = useAuth();
@@ -44,6 +45,7 @@ const DashboardPage: React.FC = () => {
 
   const [statusFilter, setStatusFilter] = useState<StatusFilter>("all");
   const [searchTerm, setSearchTerm] = useState("");
+  const [sortOption, setSortOption] = useState<SortOption>("newest");
 
   useEffect(() => {
     if (!user) {
@@ -119,7 +121,6 @@ const DashboardPage: React.FC = () => {
 
     try {
       const colRef = collection(db, "users", user.uid, "internships");
-
       const trimmedNotes = notes.trim();
 
       if (isEditing && editingId) {
@@ -179,7 +180,7 @@ const DashboardPage: React.FC = () => {
     }
   };
 
-  // --- derived data for filters & summary + search ---
+  // --- derived data: filters, search, sort ---
   const totalCount = internships.length;
 
   const statusCounts = STATUS_OPTIONS.reduce(
@@ -203,6 +204,35 @@ const DashboardPage: React.FC = () => {
       normalizedSearch === "" || haystack.includes(normalizedSearch);
 
     return matchesStatus && matchesSearch;
+  });
+
+  const sortedInternships = [...filteredInternships].sort((a, b) => {
+    // helper to get numeric timestamp for sorting; newer = bigger
+    const getTime = (x: Internship): number => {
+      if (x.createdAt && "toDate" in x.createdAt) {
+        return x.createdAt.toDate().getTime();
+      }
+      return 0;
+    };
+
+    if (sortOption === "newest") {
+      return getTime(b) - getTime(a);
+    }
+    if (sortOption === "oldest") {
+      return getTime(a) - getTime(b);
+    }
+
+    const aCompany = a.company.toLowerCase();
+    const bCompany = b.company.toLowerCase();
+
+    if (sortOption === "company-az") {
+      return aCompany.localeCompare(bCompany);
+    }
+    if (sortOption === "company-za") {
+      return bCompany.localeCompare(aCompany);
+    }
+
+    return 0;
   });
 
   if (authLoading) {
@@ -244,12 +274,12 @@ const DashboardPage: React.FC = () => {
       style={{
         minHeight: "100vh",
         width: "100vw",
-        fontFamily: "sans-serif",
+        fontFamily: "system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif",
         backgroundColor: "#f3f4f6",
         overflowX: "hidden",
       }}
     >
-      {/* Top bar full width */}
+      {/* Top bar */}
       <header
         style={{
           width: "100%",
@@ -257,13 +287,17 @@ const DashboardPage: React.FC = () => {
           display: "flex",
           justifyContent: "space-between",
           alignItems: "center",
-          backgroundColor: "#111827",
+          background:
+            "linear-gradient(90deg, #0f172a 0%, #111827 40%, #1f2937 100%)",
           color: "#f9fafb",
           boxSizing: "border-box",
+          boxShadow: "0 2px 4px rgba(0,0,0,0.2)",
         }}
       >
         <div>
-          <h1 style={{ margin: 0, fontSize: "1.4rem" }}>Internship Tracker</h1>
+          <h1 style={{ margin: 0, fontSize: "1.5rem", letterSpacing: "0.03em" }}>
+            Internship Tracker
+          </h1>
           <p style={{ margin: 0, fontSize: "0.85rem", color: "#9ca3af" }}>
             Signed in as {user.email}
           </p>
@@ -272,9 +306,9 @@ const DashboardPage: React.FC = () => {
         <button
           onClick={handleLogout}
           style={{
-            padding: "8px 12px",
-            borderRadius: "6px",
-            border: "1px solid #f87171",
+            padding: "8px 14px",
+            borderRadius: "9999px",
+            border: "1px solid #fca5a5",
             backgroundColor: "#b91c1c",
             color: "#fff",
             fontSize: "0.9rem",
@@ -285,36 +319,40 @@ const DashboardPage: React.FC = () => {
         </button>
       </header>
 
-      {/* Main full-width area */}
+      {/* Main area */}
       <main
         style={{
           width: "100%",
-          padding: "24px 32px",
+          padding: "24px",
           boxSizing: "border-box",
+          display: "flex",
+          justifyContent: "center",
         }}
       >
         <div
           style={{
+            width: "100%",
+            maxWidth: "1200px",
             display: "flex",
             flexDirection: "column",
             gap: "20px",
-            maxWidth: "1400px",
           }}
         >
-          {/* Add / Edit internship card */}
+          {/* Add / Edit card */}
           <section
             style={{
               backgroundColor: "#ffffff",
-              borderRadius: "12px",
+              borderRadius: "16px",
               padding: "20px",
-              boxShadow: "0 1px 3px rgba(0,0,0,0.08)",
+              boxShadow: "0 1px 4px rgba(0,0,0,0.08)",
+              border: "1px solid #e5e7eb",
             }}
           >
             <h2
               style={{
                 marginTop: 0,
                 marginBottom: "12px",
-                fontSize: "1.1rem",
+                fontSize: "1.2rem",
               }}
             >
               {isEditing ? "Edit Internship" : "Add Internship"}
@@ -324,9 +362,8 @@ const DashboardPage: React.FC = () => {
               style={{
                 display: "grid",
                 gridTemplateColumns: "1.5fr 1.5fr 1fr auto",
-                gap: "8px",
+                gap: "10px",
                 alignItems: "center",
-                maxWidth: "100%",
               }}
             >
               <div>
@@ -336,6 +373,7 @@ const DashboardPage: React.FC = () => {
                     display: "block",
                     fontSize: "0.8rem",
                     marginBottom: 4,
+                    color: "#4b5563",
                   }}
                 >
                   Company
@@ -349,7 +387,7 @@ const DashboardPage: React.FC = () => {
                   style={{
                     width: "100%",
                     padding: "8px",
-                    borderRadius: "6px",
+                    borderRadius: "8px",
                     border: "1px solid #d1d5db",
                     fontSize: "0.9rem",
                   }}
@@ -363,6 +401,7 @@ const DashboardPage: React.FC = () => {
                     display: "block",
                     fontSize: "0.8rem",
                     marginBottom: 4,
+                    color: "#4b5563",
                   }}
                 >
                   Role
@@ -376,7 +415,7 @@ const DashboardPage: React.FC = () => {
                   style={{
                     width: "100%",
                     padding: "8px",
-                    borderRadius: "6px",
+                    borderRadius: "8px",
                     border: "1px solid #d1d5db",
                     fontSize: "0.9rem",
                   }}
@@ -390,6 +429,7 @@ const DashboardPage: React.FC = () => {
                     display: "block",
                     fontSize: "0.8rem",
                     marginBottom: 4,
+                    color: "#4b5563",
                   }}
                 >
                   Status
@@ -403,7 +443,7 @@ const DashboardPage: React.FC = () => {
                   style={{
                     width: "100%",
                     padding: "8px",
-                    borderRadius: "6px",
+                    borderRadius: "8px",
                     border: "1px solid #d1d5db",
                     fontSize: "0.9rem",
                     backgroundColor: "#fff",
@@ -431,7 +471,7 @@ const DashboardPage: React.FC = () => {
                     onClick={handleCancelEdit}
                     style={{
                       padding: "9px 14px",
-                      borderRadius: "8px",
+                      borderRadius: "9999px",
                       border: "1px solid #d1d5db",
                       backgroundColor: "#fff",
                       color: "#374151",
@@ -449,8 +489,8 @@ const DashboardPage: React.FC = () => {
                   type="submit"
                   disabled={saving}
                   style={{
-                    padding: "9px 14px",
-                    borderRadius: "8px",
+                    padding: "9px 16px",
+                    borderRadius: "9999px",
                     border: "none",
                     backgroundColor: saving ? "#93c5fd" : "#2563eb",
                     color: "#fff",
@@ -464,14 +504,15 @@ const DashboardPage: React.FC = () => {
                 </button>
               </div>
 
-              {/* Notes field (full width) */}
-              <div style={{ gridColumn: "1 / -1", marginTop: "8px" }}>
+              {/* Notes field full width */}
+              <div style={{ gridColumn: "1 / -1", marginTop: "4px" }}>
                 <label
                   htmlFor="notes"
                   style={{
                     display: "block",
                     fontSize: "0.8rem",
                     marginBottom: 4,
+                    color: "#4b5563",
                   }}
                 >
                   Notes (optional)
@@ -485,7 +526,7 @@ const DashboardPage: React.FC = () => {
                     width: "100%",
                     minHeight: "60px",
                     padding: "8px",
-                    borderRadius: "6px",
+                    borderRadius: "8px",
                     border: "1px solid #d1d5db",
                     fontSize: "0.9rem",
                     resize: "vertical",
@@ -511,28 +552,46 @@ const DashboardPage: React.FC = () => {
           <section
             style={{
               backgroundColor: "#ffffff",
-              borderRadius: "12px",
+              borderRadius: "16px",
               padding: "20px",
-              boxShadow: "0 1px 3px rgba(0,0,0,0.08)",
+              boxShadow: "0 1px 4px rgba(0,0,0,0.08)",
+              border: "1px solid #e5e7eb",
             }}
           >
-            <h2
+            <div
               style={{
-                marginTop: 0,
+                display: "flex",
+                justifyContent: "space-between",
+                alignItems: "center",
                 marginBottom: "12px",
-                fontSize: "1.1rem",
               }}
             >
-              Your Applications
-            </h2>
+              <h2
+                style={{
+                  margin: 0,
+                  fontSize: "1.15rem",
+                }}
+              >
+                Your Applications
+              </h2>
+              <p
+                style={{
+                  margin: 0,
+                  fontSize: "0.8rem",
+                  color: "#6b7280",
+                }}
+              >
+                Total: <strong>{totalCount}</strong>
+              </p>
+            </div>
 
-            {/* Filter bar + search + summary */}
+            {/* Filters + search + sort */}
             <div
               style={{
                 marginBottom: "12px",
                 display: "flex",
                 flexWrap: "wrap",
-                gap: "8px",
+                gap: "10px",
                 alignItems: "center",
                 justifyContent: "space-between",
               }}
@@ -591,11 +650,17 @@ const DashboardPage: React.FC = () => {
                 })}
               </div>
 
-              {/* Search */}
-              <div>
+              <div
+                style={{
+                  display: "flex",
+                  flexWrap: "wrap",
+                  gap: "8px",
+                  alignItems: "center",
+                }}
+              >
                 <input
                   type="text"
-                  placeholder="Search by company, role, or notes..."
+                  placeholder="Search company, role, notes..."
                   value={searchTerm}
                   onChange={(e) => setSearchTerm(e.target.value)}
                   style={{
@@ -606,6 +671,24 @@ const DashboardPage: React.FC = () => {
                     minWidth: "220px",
                   }}
                 />
+                <select
+                  value={sortOption}
+                  onChange={(e) =>
+                    setSortOption(e.target.value as SortOption)
+                  }
+                  style={{
+                    padding: "6px 10px",
+                    borderRadius: "9999px",
+                    border: "1px solid #e5e7eb",
+                    fontSize: "0.8rem",
+                    backgroundColor: "#fff",
+                  }}
+                >
+                  <option value="newest">Sort: Newest first</option>
+                  <option value="oldest">Sort: Oldest first</option>
+                  <option value="company-az">Sort: Company A → Z</option>
+                  <option value="company-za">Sort: Company Z → A</option>
+                </select>
               </div>
             </div>
 
@@ -613,7 +696,7 @@ const DashboardPage: React.FC = () => {
               <p style={{ fontSize: "0.9rem", color: "#6b7280" }}>
                 Loading...
               </p>
-            ) : filteredInternships.length === 0 ? (
+            ) : sortedInternships.length === 0 ? (
               <p style={{ fontSize: "0.9rem", color: "#6b7280" }}>
                 {totalCount === 0
                   ? "No internships yet. Add your first one above."
@@ -625,10 +708,9 @@ const DashboardPage: React.FC = () => {
                   display: "flex",
                   flexDirection: "column",
                   gap: "8px",
-                  maxWidth: "100%",
                 }}
               >
-                {filteredInternships.map((item) => {
+                {sortedInternships.map((item) => {
                   let createdLabel = "";
                   if (item.createdAt && "toDate" in item.createdAt) {
                     createdLabel = item.createdAt
@@ -649,8 +731,9 @@ const DashboardPage: React.FC = () => {
                         alignItems: "flex-start",
                         gap: "12px",
                         padding: "10px 12px",
-                        borderRadius: "8px",
+                        borderRadius: "10px",
                         border: "1px solid #e5e7eb",
+                        backgroundColor: "#f9fafb",
                       }}
                     >
                       <div style={{ flex: 1 }}>
@@ -671,7 +754,17 @@ const DashboardPage: React.FC = () => {
                           }}
                         >
                           {createdLabel && <>Added on {createdLabel} · </>}
-                          Status: {statusLabel}
+                          <span
+                            style={{
+                              padding: "2px 8px",
+                              borderRadius: "9999px",
+                              backgroundColor: "#e0f2fe",
+                              color: "#1d4ed8",
+                              fontWeight: 500,
+                            }}
+                          >
+                            {statusLabel}
+                          </span>
                         </div>
                         {item.notes && item.notes.trim() !== "" && (
                           <div
@@ -689,7 +782,8 @@ const DashboardPage: React.FC = () => {
                       <div
                         style={{
                           display: "flex",
-                          gap: "8px",
+                          flexDirection: "column",
+                          gap: "6px",
                           fontSize: "0.8rem",
                         }}
                       >
@@ -698,7 +792,7 @@ const DashboardPage: React.FC = () => {
                           onClick={() => handleEdit(item)}
                           style={{
                             padding: "6px 10px",
-                            borderRadius: "6px",
+                            borderRadius: "8px",
                             border: "1px solid #2563eb",
                             backgroundColor: "#eff6ff",
                             color: "#1d4ed8",
@@ -712,7 +806,7 @@ const DashboardPage: React.FC = () => {
                           onClick={() => handleDelete(item.id)}
                           style={{
                             padding: "6px 10px",
-                            borderRadius: "6px",
+                            borderRadius: "8px",
                             border: "1px solid #dc2626",
                             backgroundColor: "#fef2f2",
                             color: "#b91c1c",
