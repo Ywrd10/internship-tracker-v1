@@ -85,7 +85,8 @@ Live URL:
 
 📸 Screenshots 
 
-<img width="1918" height="1000" alt="image" src="https://github.com/user-attachments/assets/638b5f1c-3bf9-4d00-8f38-d89bc1fb3f52" />
+<img width="1916" height="1006" alt="image" src="https://github.com/user-attachments/assets/f71aead6-0ee5-4f70-a28a-7271585b6d8d" />
+
 
 
 
