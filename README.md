@@ -53,18 +53,18 @@ public/
 
 🔧 Setup Instructions
 
-Clone the repo:
+1) Clone the repo:
 
 git clone https://github.com/Ywrd10/internship-tracker-v1.git
 cd internship-tracker-v1
 
 
-Install dependencies:
+2) Install dependencies:
 
-npm install
+  npm install
 
 
-Create a .env file and add your Firebase config:
+3) Create a .env file and add your Firebase config:
 
 VITE_FIREBASE_API_KEY=...
 VITE_FIREBASE_AUTH_DOMAIN=...
@@ -74,7 +74,7 @@ VITE_FIREBASE_MESSAGING_SENDER_ID=...
 VITE_FIREBASE_APP_ID=...
 
 
-Run locally:
+4) Run locally:
 
 npm run dev
 
