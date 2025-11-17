@@ -12,5 +12,6 @@ export interface Internship {
   company: string;
   role: string;
   status: InternshipStatus;
+  notes?: string;
   createdAt?: Timestamp | null;
 }

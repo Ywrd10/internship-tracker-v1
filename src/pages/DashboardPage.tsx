@@ -33,6 +33,7 @@ const DashboardPage: React.FC = () => {
   const [company, setCompany] = useState("");
   const [role, setRole] = useState("");
   const [status, setStatus] = useState<InternshipStatus>("applied");
+  const [notes, setNotes] = useState("");
   const [internships, setInternships] = useState<Internship[]>([]);
   const [loadingList, setLoadingList] = useState(true);
   const [saving, setSaving] = useState(false);
@@ -41,8 +42,8 @@ const DashboardPage: React.FC = () => {
   const [isEditing, setIsEditing] = useState(false);
   const [editingId, setEditingId] = useState<string | null>(null);
 
-  // NEW: filter state
   const [statusFilter, setStatusFilter] = useState<StatusFilter>("all");
+  const [searchTerm, setSearchTerm] = useState("");
 
   useEffect(() => {
     if (!user) {
@@ -65,6 +66,7 @@ const DashboardPage: React.FC = () => {
             company: data.company ?? "",
             role: data.role ?? "",
             status: (data.status as InternshipStatus) ?? "applied",
+            notes: data.notes ?? "",
             createdAt: data.createdAt ?? null,
           };
         });
@@ -78,7 +80,6 @@ const DashboardPage: React.FC = () => {
         setLoadingList(false);
       }
     );
-
 
     return () => unsub();
   }, [user]);
@@ -95,6 +96,7 @@ const DashboardPage: React.FC = () => {
     setCompany("");
     setRole("");
     setStatus("applied");
+    setNotes("");
     setIsEditing(false);
     setEditingId(null);
   };
@@ -118,18 +120,22 @@ const DashboardPage: React.FC = () => {
     try {
       const colRef = collection(db, "users", user.uid, "internships");
 
+      const trimmedNotes = notes.trim();
+
       if (isEditing && editingId) {
         const docRef = doc(db, "users", user.uid, "internships", editingId);
         await updateDoc(docRef, {
           company: company.trim(),
           role: role.trim(),
           status,
+          notes: trimmedNotes,
         });
       } else {
         await addDoc(colRef, {
           company: company.trim(),
           role: role.trim(),
           status,
+          notes: trimmedNotes,
           createdAt: serverTimestamp(),
         });
       }
@@ -147,6 +153,7 @@ const DashboardPage: React.FC = () => {
     setCompany(item.company);
     setRole(item.role);
     setStatus(item.status);
+    setNotes(item.notes ?? "");
     setIsEditing(true);
     setEditingId(item.id);
 
@@ -172,7 +179,7 @@ const DashboardPage: React.FC = () => {
     }
   };
 
-  // --- derived data for filters & summary ---
+  // --- derived data for filters & summary + search ---
   const totalCount = internships.length;
 
   const statusCounts = STATUS_OPTIONS.reduce(
@@ -183,10 +190,20 @@ const DashboardPage: React.FC = () => {
     {} as Record<InternshipStatus, number>
   );
 
-  const filteredInternships =
-    statusFilter === "all"
-      ? internships
-      : internships.filter((i) => i.status === statusFilter);
+  const normalizedSearch = searchTerm.trim().toLowerCase();
+
+  const filteredInternships = internships.filter((item) => {
+    const matchesStatus =
+      statusFilter === "all" || item.status === statusFilter;
+
+    const haystack =
+      (item.company + " " + item.role + " " + (item.notes ?? "")).toLowerCase();
+
+    const matchesSearch =
+      normalizedSearch === "" || haystack.includes(normalizedSearch);
+
+    return matchesStatus && matchesSearch;
+  });
 
   if (authLoading) {
     return (
@@ -446,6 +463,35 @@ const DashboardPage: React.FC = () => {
                   {saving ? "Saving..." : isEditing ? "Update" : "Add"}
                 </button>
               </div>
+
+              {/* Notes field (full width) */}
+              <div style={{ gridColumn: "1 / -1", marginTop: "8px" }}>
+                <label
+                  htmlFor="notes"
+                  style={{
+                    display: "block",
+                    fontSize: "0.8rem",
+                    marginBottom: 4,
+                  }}
+                >
+                  Notes (optional)
+                </label>
+                <textarea
+                  id="notes"
+                  value={notes}
+                  onChange={(e) => setNotes(e.target.value)}
+                  placeholder="Notes about recruiter, next steps, links, interview dates, etc."
+                  style={{
+                    width: "100%",
+                    minHeight: "60px",
+                    padding: "8px",
+                    borderRadius: "6px",
+                    border: "1px solid #d1d5db",
+                    fontSize: "0.9rem",
+                    resize: "vertical",
+                  }}
+                />
+              </div>
             </form>
 
             {error && (
@@ -480,7 +526,7 @@ const DashboardPage: React.FC = () => {
               Your Applications
             </h2>
 
-            {/* Filter bar + summary */}
+            {/* Filter bar + search + summary */}
             <div
               style={{
                 marginBottom: "12px",
@@ -544,6 +590,23 @@ const DashboardPage: React.FC = () => {
                   );
                 })}
               </div>
+
+              {/* Search */}
+              <div>
+                <input
+                  type="text"
+                  placeholder="Search by company, role, or notes..."
+                  value={searchTerm}
+                  onChange={(e) => setSearchTerm(e.target.value)}
+                  style={{
+                    padding: "6px 10px",
+                    borderRadius: "9999px",
+                    border: "1px solid #e5e7eb",
+                    fontSize: "0.8rem",
+                    minWidth: "220px",
+                  }}
+                />
+              </div>
             </div>
 
             {loadingList ? (
@@ -554,7 +617,7 @@ const DashboardPage: React.FC = () => {
               <p style={{ fontSize: "0.9rem", color: "#6b7280" }}>
                 {totalCount === 0
                   ? "No internships yet. Add your first one above."
-                  : "No internships for this filter."}
+                  : "No internships match this filter/search."}
               </p>
             ) : (
               <div
@@ -583,13 +646,14 @@ const DashboardPage: React.FC = () => {
                       style={{
                         display: "flex",
                         justifyContent: "space-between",
-                        alignItems: "center",
+                        alignItems: "flex-start",
+                        gap: "12px",
                         padding: "10px 12px",
                         borderRadius: "8px",
                         border: "1px solid #e5e7eb",
                       }}
                     >
-                      <div>
+                      <div style={{ flex: 1 }}>
                         <div
                           style={{
                             fontSize: "0.95rem",
@@ -603,11 +667,23 @@ const DashboardPage: React.FC = () => {
                           style={{
                             fontSize: "0.8rem",
                             color: "#6b7280",
+                            marginBottom: item.notes ? "4px" : 0,
                           }}
                         >
                           {createdLabel && <>Added on {createdLabel} · </>}
                           Status: {statusLabel}
                         </div>
+                        {item.notes && item.notes.trim() !== "" && (
+                          <div
+                            style={{
+                              fontSize: "0.8rem",
+                              color: "#374151",
+                              whiteSpace: "pre-wrap",
+                            }}
+                          >
+                            {item.notes}
+                          </div>
+                        )}
                       </div>
 
                       <div
